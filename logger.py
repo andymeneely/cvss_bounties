@@ -14,8 +14,8 @@ def info(message):
 
 
 def warning(message):
-    cprint('[INFO] {0}'.format(message), 'yellow', file=sys.stderr)
+    cprint('[WARNING] {0}'.format(message), 'yellow', file=sys.stderr)
 
 
 def error(message):
-    cprint('[INFO] {0}'.format(message), 'red', file=sys.stderr)
+    cprint('[ERROR] {0}'.format(message), 'red', file=sys.stderr)
