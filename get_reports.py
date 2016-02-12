@@ -1,4 +1,5 @@
 import argparse
+import json
 import multiprocessing
 import os
 
@@ -62,7 +63,7 @@ def _save(count, sync_queue):
             filepath = os.path.join(REPORTS_DIRECTORY, filename)
 
             with open(filepath, 'w') as file_:
-                file_.write(str(report))
+                json.dump(report, file_)
             if report['has_bounty?']:
                 with_bounty.append(report_id)
             if report['cve_ids']:
