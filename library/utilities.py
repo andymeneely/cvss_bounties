@@ -1,3 +1,5 @@
+import json
+import os
 import re
 import xml.etree.ElementTree as etree
 
@@ -42,3 +44,25 @@ class NvdXml(object):
                 details[tagname] = child.text
 
         return details
+
+
+class Report(object):
+    @staticmethod
+    def get_details(report):
+        bounty = None
+        if report['has_bounty?']:
+            if 'bounty_amount' in report:
+                bounty = float(report['bounty_amount'])
+            else:
+                for activity in report['activities']:
+                    if 'bounty_amount' in activity:
+                        bounty = float(
+                                activity['bounty_amount'].replace(',', '')
+                            )
+                        break
+        cves = None
+        if report['cve_ids']:
+            cves = report['cve_ids']
+        product = report['team']['name']
+
+        return {'product': product, 'cve_ids': cves, 'bounty': bounty}

@@ -1,9 +1,11 @@
 import unittest
 
+import requests
+
 from library import utilities
 
 
-class UtilitiesTestCase(unittest.TestCase):
+class NvdXmlTestCase(unittest.TestCase):
     def test_get_details_valid(self):
         # Arrange
         nvdxml = utilities.NvdXml()
@@ -41,3 +43,39 @@ class UtilitiesTestCase(unittest.TestCase):
 
         # Assert
         self.assertRaises(Exception, nvdxml.get_details, 'CVE-201-9999')
+
+
+class ReportTestCase(unittest.TestCase):
+    def test_get_details(self):
+        # Arrange
+        report = requests.get(
+                'https://hackerone.com/reports/103993.json'
+            ).json()
+        expected = {
+                'product': 'Ruby',
+                'cve_ids': ['CVE-2015-3900'],
+                'bounty': 1500.00
+            }
+
+        # Act
+        actual = utilities.Report.get_details(report)
+
+        # Assert
+        self.assertDictEqual(expected, actual)
+
+    def test_get_details_6626(self):
+        # Arrange
+        report = requests.get(
+                'https://hackerone.com/reports/6626.json'
+            ).json()
+        expected = {
+                'product': 'OpenSSL',
+                'cve_ids': ['CVE-2014-0160'],
+                'bounty': 15000.00
+            }
+
+        # Act
+        actual = utilities.Report.get_details(report)
+
+        # Assert
+        self.assertDictEqual(expected, actual)
