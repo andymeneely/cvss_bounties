@@ -40,3 +40,15 @@ optional arguments:
                         None, where all XML feed files starting at year 2002
                         to the present year are downloaded.
 ```
+
+# Analyze HackerOne Reports
+
+```
+usage: analyze_reports.py [-h] [-o]
+
+Script to analyze publicly accesible reports downloaded from hackerone.com.
+
+optional arguments:
+  -h, --help    show this help message and exit
+  -o, --output  Generate output files instead of using standard output.
+```
