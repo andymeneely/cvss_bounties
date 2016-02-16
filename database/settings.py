@@ -24,11 +24,11 @@ settings = {
     },
     'PRODUCTION': {
         'sqlalchemy.url': sqlalchemy.engine.url.URL(
-            drivername='psycopg2',
+            drivername='postgresql',
             username=None,
             password=None,
-            host=None,
-            port=None,
+            host='localhost',
+            port='5432',
             database='bountyvscvss'
         )
     }
