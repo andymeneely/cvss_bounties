@@ -28,22 +28,18 @@ def analyze_reports(is_output_enabled=False):
         sys.exit(0)
 
     missing_cve = 0
-    missing_nvd = 0
     reports = dict()
     for report_id in report_ids:
         filepath = os.path.join(REPORTS_DIRECTORY, '{}.json'.format(report_id))
         debug(filepath)
         report = analyze_report(filepath)
         if report['hackerone']['bounty'] is not None:
-            if report['nvd'] is None:
-                missing_cve += 1
-            elif len(report['nvd']) == 0:
-                missing_nvd += 1
-            else:
+            if report['has_cve']:
                 reports[report_id] = report
+            else:
+                missing_cve += 1
 
     warning('{} reports with bounty did not have a CVE.'.format(missing_cve))
-    warning('{} reports had CVE not found in NVD.'.format(missing_nvd))
 
     cves = list()
     cvsses = list()
@@ -53,7 +49,7 @@ def analyze_reports(is_output_enabled=False):
                 report['hackerone']['bounty'] /
                 len(report['hackerone']['cve_ids'])
             )
-        for (cve_id, cvss) in report['nvd'].items():
+        for cve_id in report['hackerone']['cve_ids']:
             cves.append(
                     (
                         cve_id, report['hackerone']['product'], bounty,
@@ -62,43 +58,24 @@ def analyze_reports(is_output_enabled=False):
                         )
                     )
                 )
-            cvss = sorted(cvss.items(), key=operator.itemgetter(0))
-            cvsses.append((cve_id, ) + tuple(v for (_, v) in cvss))
-            if not metrics:
-                metrics = [i for (i, _) in cvss]
 
     if is_output_enabled:
         with open(CVES_FILEPATH, 'w') as file_:
             writer = csv.writer(file_)
             writer.writerows(sorted(cves, key=lambda t: t[1]))
         info('CVEs written to {}'.format(CVES_FILEPATH))
-        with open(CVSS_FILEPATH, 'w') as file_:
-            writer = csv.writer(file_)
-            writer.writerows(sorted(cvsses, key=lambda t: t[0]))
-        info('CVSSs written to {}'.format(CVSS_FILEPATH))
     else:
         for (index, cve) in enumerate(cves):
-            info('[#{:3d}] {} ${:,.2f}'.format(
-                    (index + 1), cve[1], cve[2],
+            info('#{:3d} {} {} ${:,.2f}'.format(
+                    (index + 1), cve[0], cve[1], cve[2],
                 ))
-            for cvss in cvsses:
-                if cvss[0] == cve[0]:
-                    info('  {}'.format(cve[0]))
-                    for (metric, value) in zip(metrics, cvss[1:]):
-                        info('    {:25} {}'.format(metric, value))
 
 
 def analyze_report(filepath):
-    details = {'hackerone': None, 'nvd': None}
+    details = {'hackerone': None, 'has_cve': None}
     with open(filepath, 'r') as file_:
         details['hackerone'] = utilities.Report.get_details(json.load(file_))
-
-    if details['hackerone']['cve_ids']:
-        details['nvd'] = dict()
-        for cve_id in details['hackerone']['cve_ids']:
-            nvd_details = nvdxml.get_details(cve_id)
-            if nvd_details:
-                details['nvd'][cve_id] = nvd_details
+        details['has_cve'] = True if details['hackerone']['cve_ids'] else False
 
     return details
 
