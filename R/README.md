@@ -16,3 +16,6 @@ database is used instead of a PostgreSQL database.
 The utility functions used by the scripts are contained in the file `library.R`
 . In order to execute the scripts, use the `setwd` method of R to set the 
 current working directory appropriately.
+
+The `get.db.connection` utility function requires the connection string to be 
+properly configured before executing the scripts.
