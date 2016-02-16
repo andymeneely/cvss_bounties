@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -23,10 +23,15 @@ class Cvss(Base):
     __tablename__ = 'cvss'
 
     id = Column(Integer, primary_key=True)
-    cve_id = Column(String, ForeignKey('cve.id'))
+    cve_id = Column(String, ForeignKey('cve.id'), nullable=False)
 
-    base_score = Column(Integer, nullable=False)
-    vector = Column(String, nullable=False)
+    access_complexity = Column(String, nullable=False)
+    access_vector = Column(String, nullable=False)
+    authentication = Column(String, nullable=False)
+    availability_impact = Column(String, nullable=False)
+    confidentiality_impact = Column(String, nullable=False)
+    integrity_impact = Column(String, nullable=False)
+    score = Column(Float, nullable=False)
 
     # Navigation
     cve = relationship('Cve', back_populates='cvss')
@@ -36,10 +41,9 @@ class Bounty(Base):
     __tablename__ = 'bounty'
 
     id = Column(Integer, primary_key=True)
-    cve_id = Column(String, ForeignKey('cve.id'))
+    cve_id = Column(String, ForeignKey('cve.id'), nullable=False)
 
-    amount = Column(Integer, nullable=False)
-    awarded_to = Column(String, nullable=True)
+    amount = Column(Float, nullable=False)
 
     # Navigation
     cve = relationship('Cve', back_populates='bounty')
