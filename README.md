@@ -52,3 +52,42 @@ optional arguments:
   -h, --help    show this help message and exit
   -o, --output  Generate output files instead of using standard output.
 ```
+
+# Initialize Database
+
+The `database.initialize` module creates all the models. The settings used are
+in the `database.settings` module.
+
+```
+usage: initialize.py [-h] {DEVELOPMENT,PRODUCTION}
+
+Intialize the database.
+
+positional arguments:
+  {DEVELOPMENT,PRODUCTION}
+                        Database environment to initialize.
+
+optional arguments:
+  -h, --help            show this help message and exit
+```
+
+# Load Database
+
+The `load_database` module loads bounty data from a CSV file into a database in
+the environment identified by the `DEFAULT` setting in the `database.settings`
+module.
+
+```
+usage: load_database.py [-h] file
+
+Load the database with bounty from a CSV file.
+
+positional arguments:
+  file        Path to the file containing bounty. The file must be in CSV
+              format with a header. The first three columns of the file must
+              contain CVE, the name of the product, and bounty amount, in that
+              order.
+
+optional arguments:
+  -h, --help  show this help message and exit
+```
