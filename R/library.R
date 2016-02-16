@@ -3,7 +3,27 @@ init.libraries <- function(){
     suppressPackageStartupMessages(library("DBI"))
     suppressPackageStartupMessages(library("ggplot2"))
     suppressPackageStartupMessages(library("effsize"))
-    suppressPackageStartupMessages(library("corrplot"))
+}
+
+get.db.connection <- function(environment="PRODUCTION"){
+  if(environment == "PRODUCTION"){
+    return(
+      db.connect(
+        provider = "PostgreSQL",
+        user = "", password = "",
+        host = "localhost", port = "5432",
+        dbname = "bountyvscvss"
+      )
+    )
+  } else if(environment == "DEVELOPMENT") {
+    return(
+      db.connect(
+        provider = "SQLite", dbname = "../db.sqlite3"
+      )
+    )
+  } else {
+    stop(sprint("Unknown environment %s.", environment))
+  }
 }
 
 db.connect <- function(host = NA, port = NA, user = NA, password = NA, dbname,
