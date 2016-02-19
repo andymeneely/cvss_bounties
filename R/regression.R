@@ -26,12 +26,7 @@ db.disconnect(db.connection)
 # Data Tranformations
 
 ## Transform Categoricals into Factors
-dataset$access_complexity <- factor(dataset$access_complexity)
-dataset$access_vector <- factor(dataset$access_vector)
-dataset$authentication <- factor(dataset$authentication)
-dataset$availability_impact <- factor(dataset$availability_impact)
-dataset$confidentiality_impact <- factor(dataset$confidentiality_impact)
-dataset$integrity_impact <- factor(dataset$integrity_impact)
+dataset <- transform.dataset(dataset)
 
 # Regression Analysis
 
@@ -51,3 +46,21 @@ lm.amount <- lm(
   data = dataset
 )
 print(summary(lm.amount))
+
+## Recursive Partitioning and Regression Trees
+### Metric: Score
+
+rpart.score <- rpart(
+  score ~ access_complexity + access_vector + authentication +
+    availability_impact + confidentiality_impact + integrity_impact,
+  data = dataset, method = "anova"
+)
+print(summary(rpart.score))
+
+### Metric: Amount
+rpart.amount <- rpart(
+  amount ~ access_complexity + access_vector + authentication +
+    availability_impact + confidentiality_impact + integrity_impact,
+  data = dataset, method = "anova"
+)
+print(summary(rpart.amount))
