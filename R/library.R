@@ -44,12 +44,14 @@ METRIC.VALUE.LABELS$COMPLETE <- "Complete"
 
 # Function Definitions
 init.libraries <- function(){
-    suppressPackageStartupMessages(library("DBI"))
-    suppressPackageStartupMessages(library("ggplot2"))
-    suppressPackageStartupMessages(library("effsize"))
-    suppressPackageStartupMessages(library("rpart"))
-    suppressPackageStartupMessages(library("Rmisc"))
-    suppressPackageStartupMessages(library("stringr"))
+  suppressPackageStartupMessages(library("DBI"))
+  suppressPackageStartupMessages(library("gtable"))
+  suppressPackageStartupMessages(library("ggplot2"))
+  suppressPackageStartupMessages(library("effsize"))
+  suppressPackageStartupMessages(library("rpart"))
+  suppressPackageStartupMessages(library("Rmisc"))
+  suppressPackageStartupMessages(library("stringr"))
+  suppressPackageStartupMessages(library("grid"))
 }
 
 get.db.connection <- function(environment="PRODUCTION"){
@@ -127,4 +129,13 @@ transform.dataset <- function(dataset){
   dataset$confidentiality_impact <- factor(dataset$confidentiality_impact, level = METRIC.VALUES$confidentiality_impact)
   dataset$integrity_impact <- factor(dataset$integrity_impact, level = METRIC.VALUES$integrity_impact)
   return(dataset)
+}
+
+# Outlier detection using kmeans clustering
+get.outlier.indices <- function(data.vector){
+  clusters <- kmeans(x = data.vector, centers = 2)$cluster
+  clusters.count <- table(clusters)
+  outlier.cluster <- names(clusters.count[clusters.count == min(clusters.count)])
+  outlier.indices <- which(clusters == outlier.cluster)
+  return(outlier.indices)
 }
