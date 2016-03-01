@@ -16,7 +16,7 @@ class Cve(Base):
     bounty = relationship('Bounty', uselist=False, back_populates='cve')
 
     def __repr__(self):
-        return self.cve_id
+        return self.id
 
 
 class Cvss(Base):
