@@ -32,6 +32,12 @@ def load(file_):
                 ]
             cve.cvss.integrity_impact = nvd_details['integrity-impact']
             cve.cvss.score = nvd_details['score']
+            cve.cvss.exploitability_subscore = nvd_details[
+                    'exploitability-subscore'
+                ]
+            cve.cvss.impact_subscore = nvd_details[
+                    'impact-subscore'
+                ]
 
             cve.bounty = Bounty()
 

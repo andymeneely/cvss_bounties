@@ -11,6 +11,8 @@ class NvdXmlTestCase(unittest.TestCase):
         nvdxml = utilities.NvdXml()
         expected = {
                 'score': '9.3',
+                'impact-subscore': 10.0,
+                'exploitability-subscore': 8.6,
                 'access-vector': 'NETWORK',
                 'access-complexity': 'MEDIUM',
                 'authentication': 'NONE',

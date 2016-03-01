@@ -32,6 +32,8 @@ class Cvss(Base):
     confidentiality_impact = Column(String, nullable=False)
     integrity_impact = Column(String, nullable=False)
     score = Column(Float, nullable=False)
+    exploitability_subscore = Column(Float, nullable=False)
+    impact_subscore = Column(Float, nullable=False)
 
     # Navigation
     cve = relationship('Cve', back_populates='cvss')

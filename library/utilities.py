@@ -7,6 +7,12 @@ from constants import *
 from logger import *
 
 RE_CVE_ID = re.compile('CVE-(\d{4})-(\d{4,})')
+AV_LOOKUP = {'local': 0.395, 'adjacent_network': 0.646, 'network': 1.0}
+AC_LOOKUP = {'low': 0.71, 'medium': 0.61, 'high': 0.35}
+AU_LOOKUP = {
+        'none': 0.704, 'single_instance': 0.56, 'multiple_instances': 0.45
+    }
+IMPACT_LOOKUP = {'none': 0.0, 'partial': 0.275, 'complete': 0.660}
 
 
 class NvdXml(object):
@@ -42,8 +48,43 @@ class NvdXml(object):
                         '{{{}}}'.format(NVD_CVSS_XML_NAMESPACE), ''
                     )
                 details[tagname] = child.text
+            details['exploitability-subscore'] = (
+                    self._get_exploitability_subscore(
+                            details['access-complexity'],
+                            details['access-vector'],
+                            details['authentication']
+                        )
+                )
+            details['impact-subscore'] = (
+                    self._get_impact_subscore(
+                            details['availability-impact'],
+                            details['confidentiality-impact'],
+                            details['integrity-impact']
+                        )
+                )
 
         return details
+
+    def _get_exploitability_subscore(self, ac, av, au):
+        exploitability_subscore = (
+                20 *
+                AV_LOOKUP[av.lower()] *
+                AC_LOOKUP[ac.lower()] *
+                AU_LOOKUP[au.lower()]
+            )
+        return round(exploitability_subscore, 1)
+
+    def _get_impact_subscore(self, ai, ci, ii):
+        impact_subscore = (
+                10.41 *
+                (
+                    1 -
+                    (1 - IMPACT_LOOKUP[ai.lower()]) *
+                    (1 - IMPACT_LOOKUP[ci.lower()]) *
+                    (1 - IMPACT_LOOKUP[ii.lower()])
+                )
+            )
+        return round(impact_subscore, 1)
 
 
 class Report(object):
