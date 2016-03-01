@@ -10,6 +10,9 @@ The R scripts depend on the libraries listed below.
 database is used instead of a PostgreSQL database.
 1. `ggplot2` for plotting.
 1. `effsize` for Cohen's d Effect Size measurement.
+1. `rpart` for Recursive Partitioning and Regression Trees analysis.
+1. `Rmisc` for the `multiplot` function.
+1. `stringr` for `str_replace` function.
 
 # Usage
 
