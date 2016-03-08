@@ -11,6 +11,7 @@ init.libraries()
 # Constants
 QUERY = 
   "SELECT cve.id, cve.product, bounty.amount, cvss.score,
+    cvss.exploitability_subscore, cvss.impact_subscore,
     cvss.access_complexity, cvss.access_vector,
     cvss.authentication, cvss.availability_impact,
     cvss.confidentiality_impact, cvss.integrity_impact
@@ -40,7 +41,8 @@ plot.theme <-
     axis.text.x = element_text(size=10, colour = "black", angle = 50, vjust = 1, hjust = 1),
     axis.title.x = element_text(colour = "black", face = "bold", margin = margin(15,0,5,0)),
     axis.text.y = element_text(size=10, colour = "black"),
-    axis.title.y = element_text(colour =" black", face = "bold", margin = margin(0,15,0,5))
+    axis.title.y = element_text(colour = "black", face = "bold", margin = margin(0,15,0,5)),
+    strip.text.x = element_text(size=10, face="bold")
   )
 
 blank.theme <- plot.theme +
@@ -62,8 +64,8 @@ for(i in 1:length(product.labels)){
 
 qplot(
   product, amount, data = dataset,
-  main = "Distribution of Bounty by Product",
-  xlab = "Product (Number of Bounties)", ylab = "Bounty", geom = "boxplot"
+  main = "",
+  xlab = "Product (Number of Vulnerabilities)", ylab = "Bounty", geom = "boxplot"
 ) +
   plot.theme +
   scale_y_log10(labels = scales::dollar) +
@@ -72,77 +74,125 @@ qplot(
   )
 
 ## Scatterplots
-correlation.coefficient <- round(cor.test(dataset$score, dataset$amount, method="spearman", exact=F)$estimate, 4)
-correlation.label <- paste("rho==", correlation.coefficient, sep = "")
 
-qplot(
-  dataset$score, dataset$amount,
-  xlab = "CVSS Score", ylab = "Bounty",
-  geom = "point"
-) +
+### Entire Dataset
+data.source <- dataset
+plot.source <- rbind(
+  data.frame(
+    "type" = "Base Score",
+    "amount" = data.source$amount, "score" = data.source$score
+  ),
+  data.frame(
+    "type" = "Exploitability Subscore",
+    "amount" = data.source$amount, "score" = data.source$exploitability_subscore
+  ),
+  data.frame(
+    "type" = "Impact Subscore",
+    "amount" = data.source$amount, "score" = data.source$impact_subscore
+  )
+)
+plot.labels <- data.frame(
+  "type" = c("Base Score", "Exploitability Subscore", "Impact Subscore"),
+  "x" = c(min(data.source$score), min(data.source$exploitability_subscore), min(data.source$impact_subscore)),
+  "y" = c(max(data.source$amount), max(data.source$amount), max(data.source$amount)),
+  "correlation" = c(
+    get.spearmansrho(data.source, "amount", "score"),
+    get.spearmansrho(data.source, "amount", "exploitability_subscore"),
+    get.spearmansrho(data.source, "amount", "impact_subscore")
+  )
+)
+
+ggplot(plot.source, aes(x = score, y = amount)) +
+  geom_point() +
   geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
-  scale_x_continuous(breaks = seq(min(dataset$score), max(dataset$score), by = 0.5)) +
+  facet_grid(. ~ type, scales = "free", space = "free") + 
+  scale_x_continuous(breaks = seq(0.0, 10.0, by = 0.5)) +
   scale_y_continuous(labels = scales::dollar) +
-  annotate(
-    "text",  parse = T,
-    x = min(dataset$score), y = max(dataset$amount),
-    label = correlation.label, hjust = 0, vjust = 1, size = 4.5
+  geom_text(
+    data = plot.labels, parse = T, inherit.aes = F,
+    aes(x = x, y = y, label = paste("rho==", correlation, sep = ""), hjust = 0, vjust = 1)
   ) +
+  labs(title = "", x = "Score", y = "Bounty") +
+  plot.theme
+
+### Dataset with Outliers Removed
+data.source <- dataset[-outlier.indices,]
+plot.source <- rbind(
+  data.frame(
+    "type" = "Base Score",
+    "amount" = data.source$amount, "score" = data.source$score
+  ),
+  data.frame(
+    "type" = "Exploitability Subscore",
+    "amount" = data.source$amount, "score" = data.source$exploitability_subscore
+  ),
+  data.frame(
+    "type" = "Impact Subscore",
+    "amount" = data.source$amount, "score" = data.source$impact_subscore
+  )
+)
+plot.labels <- data.frame(
+  "type" = c("Base Score", "Exploitability Subscore", "Impact Subscore"),
+  "x" = c(min(data.source$score), min(data.source$exploitability_subscore), min(data.source$impact_subscore)),
+  "y" = c(max(data.source$amount), max(data.source$amount), max(data.source$amount)),
+  "correlation" = c(
+    get.spearmansrho(data.source, "amount", "score"),
+    get.spearmansrho(data.source, "amount", "exploitability_subscore"),
+    get.spearmansrho(data.source, "amount", "impact_subscore")
+  )
+)
+
+ggplot(plot.source, aes(x = score, y = amount)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
+  facet_grid(. ~ type, scales = "free", space = "free") +
+  scale_x_continuous(breaks = seq(0.0, 10.0, by = 0.5)) +
+  scale_y_continuous(labels = scales::dollar) +
+  geom_text(
+    data = plot.labels, parse = T, inherit.aes = F,
+    aes(x = x, y = y, label = paste("rho==", correlation, sep = ""), hjust = 0, vjust = 1)
+  ) +
+  labs(title = "", x = "Score", y = "Bounty") +
   plot.theme
 
 ## Boxplots
-ac.plot <- qplot(
-  access_complexity, amount, data = dataset,
-  xlab = "Access Complexity", ylab = "Bounty", geom = "boxplot"
-) +
-  scale_y_log10(labels = scales::dollar) +
-  scale_x_discrete(breaks = METRIC.VALUES$access_complexity, labels = METRIC.VALUE.LABELS) +
-  plot.theme
 
-av.plot <- qplot(
-  access_vector, amount,  data = dataset,
-  xlab = "Access Vector", ylab = "Bounty", geom = "boxplot"
-) +
-  scale_y_log10(labels = scales::dollar) +
-  scale_x_discrete(breaks = METRIC.VALUES$access_vector, labels = METRIC.VALUE.LABELS) +
-  plot.theme
-
-au.plot <- qplot(
-  authentication, amount, data = dataset,
-  xlab = "Authentication", ylab = "Bounty", geom = "boxplot"
-) +
-  scale_y_log10(labels = scales::dollar) +
-  scale_x_discrete(breaks = METRIC.VALUES$authentication, labels = METRIC.VALUE.LABELS) +
-  plot.theme
-
-ai.plot <- qplot(
-  availability_impact, amount, data = dataset,
-  xlab = "Availability Impact", ylab = "Bounty", geom = "boxplot"
-) +
-  scale_y_log10(labels = scales::dollar) +
-  scale_x_discrete(breaks = METRIC.VALUES$availability_impact, labels = METRIC.VALUE.LABELS) +
-  plot.theme
-
-ci.plot <- qplot(
-  confidentiality_impact, amount, data = dataset,
-  xlab = "Confidentiality Impact", ylab = "Bounty", geom = "boxplot"
-) +
-  scale_y_log10(labels = scales::dollar) +
-  scale_x_discrete(breaks = METRIC.VALUES$confidentiality_impact, labels = METRIC.VALUE.LABELS) +
-  plot.theme
-
-ii.plot <- qplot(
-  integrity_impact, amount, data = dataset,
-  xlab = "Integrity Impact", ylab = "Bounty", geom = "boxplot"
-) +
-  scale_y_log10(labels = scales::dollar) +
-  scale_x_discrete(breaks = METRIC.VALUES$integrity_impact, labels = METRIC.VALUE.LABELS) +
-  plot.theme
-
-multiplot(
-  ac.plot, av.plot, au.plot, ai.plot, ci.plot, ii.plot,
-  layout = matrix(1:6, nrow = 2, byrow = T)
+### Boxplot of Bounty by CVSS Metric
+data.source <- dataset
+plot.source <- rbind(
+  data.frame(
+    "metric" = "access_complexity", "label" = "Access Complexity",
+    "value" = data.source$access_complexity, "amount" = data.source$amount
+  ),
+  data.frame(
+    "metric" = "access_vector", "label" = "Access Vector",
+    "value" = data.source$access_vector, "amount" = data.source$amount
+  ),
+  data.frame(
+    "metric" = "authentication", "label" = "Authentication",
+    "value" = data.source$authentication, "amount" = data.source$amount
+  ),
+  data.frame(
+    "metric" = "availability_impact", "label" = "Availability Impact",
+    "value" = data.source$availability_impact, "amount" = data.source$amount
+  ),
+  data.frame(
+    "metric" = "confidentiality_impact", "label" = "Confidentiality Impact",
+    "value" = data.source$confidentiality_impact, "amount" = data.source$amount
+  ),
+  data.frame(
+    "metric" = "integrity_impact", "label" = "Integrity Impact",
+    "value" = data.source$integrity_impact, "amount" = data.source$amount
+  )
 )
+
+ggplot(plot.source, aes(x = value, y = amount)) +
+  geom_boxplot() +
+  facet_wrap(~ label, scales = "free_x") +
+  scale_x_discrete(breaks = waiver(), labels = METRIC.VALUE.LABELS) +
+  scale_y_log10(labels = scales::dollar) +
+  labs(title = "", x = "Metric Value", y = "Bounty (Log Scale)") +
+  plot.theme
 
 ## Histograms
 title = "Distribution of Bounty for Vulnerabilities with metric_value metric_label"
