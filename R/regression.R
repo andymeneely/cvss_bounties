@@ -11,6 +11,7 @@ init.libraries()
 # Constants
 QUERY = 
   "SELECT cve.id, cve.product, bounty.amount, cvss.score,
+    cvss.exploitability_subscore, cvss.impact_subscore,
     cvss.access_complexity, cvss.access_vector,
     cvss.authentication, cvss.availability_impact,
     cvss.confidentiality_impact, cvss.integrity_impact
@@ -46,6 +47,11 @@ lm.amount <- lm(
   data = dataset
 )
 print(summary(lm.amount))
+
+### Stepwise Selection
+### Metric: Amount
+lm.amount.subset <- step(lm.amount, direction = "both", k = 2)
+print(summary(lm.amount.subset))
 
 ## Recursive Partitioning and Regression Trees
 ### Metric: Score
