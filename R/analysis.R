@@ -27,6 +27,7 @@ COLNAMES <- c(
 )
 QUERY = 
   "SELECT cve.id, cve.product, bounty.amount, cvss.score,
+    cvss.exploitability_subscore, cvss.impact_subscore,
     cvss.access_complexity, cvss.access_vector,
     cvss.authentication, cvss.availability_impact,
     cvss.confidentiality_impact, cvss.integrity_impact
@@ -40,7 +41,20 @@ dataset <- db.get.data(db.connection, QUERY)
 db.disconnect(db.connection)
 
 # Correlation
+
+## Overall
 cor.test(dataset$score, dataset$amount, method = "spearman", exact = F)
+
+## Individual Product
+for(product in unique(dataset$product)){
+  product.dataset <- dataset[dataset$product == product,]
+  if(nrow(product.dataset) > 2 & sd(product.dataset$score) != 0 & sd(product.dataset$amount) != 0){
+    cat("#########################\n")
+    cat(product, "\n")
+    print(cor.test(product.dataset$score, product.dataset$amount, method = "spearman", exact = F))
+    cat("#########################\n")
+  }
+}
 
 # Pairwise Effect Evaluation
 
