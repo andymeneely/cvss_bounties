@@ -77,72 +77,23 @@ qplot(
 
 ### Entire Dataset
 data.source <- dataset
+
+#### Base Score Only
 plot.source <- rbind(
   data.frame(
     "type" = "Base Score",
     "amount" = data.source$amount, "score" = data.source$score
-  ),
-  data.frame(
-    "type" = "Exploitability Subscore",
-    "amount" = data.source$amount, "score" = data.source$exploitability_subscore
-  ),
-  data.frame(
-    "type" = "Impact Subscore",
-    "amount" = data.source$amount, "score" = data.source$impact_subscore
   )
 )
 plot.labels <- data.frame(
-  "type" = c("Base Score", "Exploitability Subscore", "Impact Subscore"),
-  "x" = c(min(data.source$score), min(data.source$exploitability_subscore), min(data.source$impact_subscore)),
-  "y" = c(max(data.source$amount), max(data.source$amount), max(data.source$amount)),
+  "type" = c("Base Score"),
+  "x" = c(min(data.source$score)),
+  "y" = c(max(data.source$amount)),
   "correlation" = c(
-    get.spearmansrho(data.source, "amount", "score"),
-    get.spearmansrho(data.source, "amount", "exploitability_subscore"),
-    get.spearmansrho(data.source, "amount", "impact_subscore")
+    get.spearmansrho(data.source, "amount", "score")
   )
 )
-
-ggplot(plot.source, aes(x = score, y = amount)) +
-  geom_point() +
-  geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
-  facet_grid(. ~ type, scales = "free", space = "free") + 
-  scale_x_continuous(breaks = seq(0.0, 10.0, by = 0.5)) +
-  scale_y_continuous(labels = scales::dollar) +
-  geom_text(
-    data = plot.labels, parse = T, inherit.aes = F,
-    aes(x = x, y = y, label = paste("rho==", correlation, sep = ""), hjust = 0, vjust = 1)
-  ) +
-  labs(title = "", x = "Score", y = "Bounty") +
-  plot.theme
-
-### Dataset with Outliers Removed
-data.source <- dataset[-outlier.indices,]
-plot.source <- rbind(
-  data.frame(
-    "type" = "Base Score",
-    "amount" = data.source$amount, "score" = data.source$score
-  ),
-  data.frame(
-    "type" = "Exploitability Subscore",
-    "amount" = data.source$amount, "score" = data.source$exploitability_subscore
-  ),
-  data.frame(
-    "type" = "Impact Subscore",
-    "amount" = data.source$amount, "score" = data.source$impact_subscore
-  )
-)
-plot.labels <- data.frame(
-  "type" = c("Base Score", "Exploitability Subscore", "Impact Subscore"),
-  "x" = c(min(data.source$score), min(data.source$exploitability_subscore), min(data.source$impact_subscore)),
-  "y" = c(max(data.source$amount), max(data.source$amount), max(data.source$amount)),
-  "correlation" = c(
-    get.spearmansrho(data.source, "amount", "score"),
-    get.spearmansrho(data.source, "amount", "exploitability_subscore"),
-    get.spearmansrho(data.source, "amount", "impact_subscore")
-  )
-)
-
-ggplot(plot.source, aes(x = score, y = amount)) +
+scatter.score <- ggplot(plot.source, aes(x = score, y = amount)) +
   geom_point() +
   geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
   facet_grid(. ~ type, scales = "free", space = "free") +
@@ -154,6 +105,115 @@ ggplot(plot.source, aes(x = score, y = amount)) +
   ) +
   labs(title = "", x = "Score", y = "Bounty") +
   plot.theme
+
+#### Subscores Only
+plot.source <- rbind(
+  data.frame(
+    "type" = "Exploitability Subscore",
+    "amount" = data.source$amount, "score" = data.source$exploitability_subscore
+  ),
+  data.frame(
+    "type" = "Impact Subscore",
+    "amount" = data.source$amount, "score" = data.source$impact_subscore
+  )
+)
+plot.labels <- data.frame(
+  "type" = c("Exploitability Subscore", "Impact Subscore"),
+  "x" = c(
+    min(data.source$exploitability_subscore, data.source$impact_subscore),
+    min(data.source$exploitability_subscore, data.source$impact_subscore)
+  ),
+  "y" = c(max(data.source$amount), max(data.source$amount)),
+  "correlation" = c(
+    get.spearmansrho(data.source, "amount", "exploitability_subscore"),
+    get.spearmansrho(data.source, "amount", "impact_subscore")
+  )
+)
+scatter.subscore <-ggplot(plot.source, aes(x = score, y = amount)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
+  facet_grid(. ~ type, space = "free") +
+  scale_x_continuous(breaks = seq(0.0, 10.0, by = 0.5)) +
+  scale_y_continuous(labels = scales::dollar) +
+  geom_text(
+    data = plot.labels, parse = T, inherit.aes = F,
+    aes(x = x, y = y, label = paste("rho==", correlation, sep = ""), hjust = 0, vjust = 1)
+  ) +
+  labs(title = "", x = "Score", y = "Bounty") +
+  plot.theme
+
+#### Layout
+grid.arrange(scatter.score, scatter.subscore, nrow=2)
+
+### Dataset with Outliers Removed
+data.source <- dataset[-outlier.indices,]
+
+#### Base Score Only
+plot.source <- rbind(
+  data.frame(
+    "type" = "Base Score",
+    "amount" = data.source$amount, "score" = data.source$score
+  )
+)
+plot.labels <- data.frame(
+  "type" = c("Base Score"),
+  "x" = c(min(data.source$score)),
+  "y" = c(max(data.source$amount)),
+  "correlation" = c(
+    get.spearmansrho(data.source, "amount", "score")
+  )
+)
+scatter.score <- ggplot(plot.source, aes(x = score, y = amount)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
+  facet_grid(. ~ type, scales = "free", space = "free") +
+  scale_x_continuous(breaks = seq(0.0, 10.0, by = 0.5)) +
+  scale_y_continuous(labels = scales::dollar) +
+  geom_text(
+    data = plot.labels, parse = T, inherit.aes = F,
+    aes(x = x, y = y, label = paste("rho==", correlation, sep = ""), hjust = 0, vjust = 1)
+  ) +
+  labs(title = "", x = "Score", y = "Bounty") +
+  plot.theme
+
+#### Subscores Only
+plot.source <- rbind(
+  data.frame(
+    "type" = "Exploitability Subscore",
+    "amount" = data.source$amount, "score" = data.source$exploitability_subscore
+  ),
+  data.frame(
+    "type" = "Impact Subscore",
+    "amount" = data.source$amount, "score" = data.source$impact_subscore
+  )
+)
+plot.labels <- data.frame(
+  "type" = c("Exploitability Subscore", "Impact Subscore"),
+  "x" = c(
+    min(data.source$exploitability_subscore, data.source$impact_subscore),
+    min(data.source$exploitability_subscore, data.source$impact_subscore)
+  ),
+  "y" = c(max(data.source$amount), max(data.source$amount)),
+  "correlation" = c(
+    get.spearmansrho(data.source, "amount", "exploitability_subscore"),
+    get.spearmansrho(data.source, "amount", "impact_subscore")
+  )
+)
+scatter.subscore <-ggplot(plot.source, aes(x = score, y = amount)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
+  facet_grid(. ~ type, space = "free") +
+  scale_x_continuous(breaks = seq(0.0, 10.0, by = 0.5)) +
+  scale_y_continuous(labels = scales::dollar) +
+  geom_text(
+    data = plot.labels, parse = T, inherit.aes = F,
+    aes(x = x, y = y, label = paste("rho==", correlation, sep = ""), hjust = 0, vjust = 1)
+  ) +
+  labs(title = "", x = "Score", y = "Bounty") +
+  plot.theme
+
+#### Layout
+grid.arrange(scatter.score, scatter.subscore, nrow=2)
 
 ## Boxplots
 
