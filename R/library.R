@@ -52,6 +52,7 @@ init.libraries <- function(){
   suppressPackageStartupMessages(library("Rmisc"))
   suppressPackageStartupMessages(library("stringr"))
   suppressPackageStartupMessages(library("grid"))
+  suppressPackageStartupMessages(library("gridExtra"))
 }
 
 get.db.connection <- function(environment="PRODUCTION"){
