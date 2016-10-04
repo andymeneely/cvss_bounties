@@ -9,6 +9,7 @@ class Cve(Base):
     __tablename__ = 'cve'
 
     id = Column(String, primary_key=True)
+    year = Column(Integer, nullable=False)
     product = Column(String, nullable=False)
 
     # Navigation
