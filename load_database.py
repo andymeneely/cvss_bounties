@@ -17,7 +17,7 @@ def load(file_):
     next(reader, None)   # Ignoring the header
     for row in reader:
         debug(row)
-        cve = Cve(id=row[0], product=row[1])
+        cve = Cve(id=row[0], year=utilities.get_year(row[0]), product=row[1])
         nvd_details = nvdxml.get_details(cve.id)
 
         if nvd_details:
