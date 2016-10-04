@@ -78,3 +78,5 @@ target/
 # pyenv
 .python-version
 
+# Files that may contain sensitive information
+database/settings.py
