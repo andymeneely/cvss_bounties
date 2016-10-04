@@ -6,13 +6,19 @@ import xml.etree.ElementTree as etree
 from constants import *
 from logger import *
 
-RE_CVE_ID = re.compile('CVE-(\d{4})-(\d{4,})')
 AV_LOOKUP = {'local': 0.395, 'adjacent_network': 0.646, 'network': 1.0}
 AC_LOOKUP = {'low': 0.71, 'medium': 0.61, 'high': 0.35}
 AU_LOOKUP = {
         'none': 0.704, 'single_instance': 0.56, 'multiple_instances': 0.45
     }
 IMPACT_LOOKUP = {'none': 0.0, 'partial': 0.275, 'complete': 0.660}
+
+
+def get_year(cve_id):
+    match = RE_CVE_ID.search(cve_id)
+    if not match:
+        raise Exception('Invalid CVE ID {}.'.format(cve_id))
+    return int(match.group(1))
 
 
 class NvdXml(object):
@@ -22,11 +28,7 @@ class NvdXml(object):
     def get_details(self, cve_id):
         details = None
 
-        match = RE_CVE_ID.search(cve_id)
-        if not match:
-            raise Exception('Invalid CVE ID {}.'.format(cve_id))
-
-        year = match.group(1)
+        year = get_year(cve_id)
         if year not in self._xmls:
             filepath = os.path.join(
                     XMLS_DIRECTORY,
@@ -62,6 +64,13 @@ class NvdXml(object):
                             details['integrity-impact']
                         )
                 )
+            element = self._xmls[year].find(
+                    '.*[@id=\'{}\']//vuln:summary'.format(cve_id),
+                    namespaces={
+                        'vuln': 'http://scap.nist.gov/schema/vulnerability/0.4'
+                    }
+                )
+            details['summary'] = element.text
 
         return details
 

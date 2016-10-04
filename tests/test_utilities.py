@@ -81,3 +81,32 @@ class ReportTestCase(unittest.TestCase):
 
         # Assert
         self.assertDictEqual(expected, actual)
+
+
+class TestCase(unittest.TestCase):
+    def test_get_year(self):
+        # Arrange
+        cve_id = 'CVE-2010-0000'
+        expected = 2010
+
+        # Act
+        actual = utilities.get_year(cve_id)
+
+        # Assert
+        self.assertEqual(expected, actual)
+
+        # Arrange
+        cve_id = 'CVE-2010-00000'
+        expected = 2010
+
+        # Act
+        actual = utilities.get_year(cve_id)
+
+        # Assert
+        self.assertEqual(expected, actual)
+
+        # Arrange
+        cve_id = 'CVE-201-0000'
+
+        # Assert
+        self.assertRaises(Exception, utilities.get_year, cve_id)
