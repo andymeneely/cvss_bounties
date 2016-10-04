@@ -27,6 +27,7 @@ def analyze_reports(is_output_enabled=False):
             )
         sys.exit(0)
 
+    missing_bounty = 0
     missing_cve = 0
     reports = dict()
     for report_id in report_ids:
@@ -38,7 +39,10 @@ def analyze_reports(is_output_enabled=False):
                 reports[report_id] = report
             else:
                 missing_cve += 1
+        else:
+            missing_bounty += 1
 
+    warning('{} reports did not have a bounty.'.format(missing_bounty))
     warning('{} reports with bounty did not have a CVE.'.format(missing_cve))
 
     cves = list()
