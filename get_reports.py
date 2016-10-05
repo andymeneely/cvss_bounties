@@ -2,6 +2,8 @@ import argparse
 import json
 import multiprocessing
 import os
+import random
+import time
 
 import requests
 
@@ -35,6 +37,8 @@ def get_report(report_id, sync_queue):
     url = HACKERONE_JSON_URL_TEMPLATE.format(report_id=report_id)
     response = requests.get(url, allow_redirects=False)
     debug('HTTP {} for {}'.format(response.status_code, url))
+    if response.status_code == requests.codes.ok:
+        time.sleep(random.random() * 1)
     sync_queue.put(
             (
                 report_id,
