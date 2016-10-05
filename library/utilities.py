@@ -113,6 +113,6 @@ class Report(object):
         cves = None
         if report['cve_ids']:
             cves = report['cve_ids']
-        product = report['team']['name']
+        product = report['team']['profile']['name']
 
         return {'product': product, 'cve_ids': cves, 'bounty': bounty}
