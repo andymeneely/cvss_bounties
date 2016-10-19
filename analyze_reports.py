@@ -12,7 +12,7 @@ from logger import *
 nvdxml = utilities.NvdXml()
 
 
-def analyze_reports(is_output_enabled=False):
+def analyze_reports(is_output_enabled):
     report_ids = [
             filename.replace('.json', '')
             for filename in os.listdir(REPORTS_DIRECTORY)
@@ -20,68 +20,104 @@ def analyze_reports(is_output_enabled=False):
         ]
 
     if not report_ids:
-        warning(
-                'No reports to analyze in {}. Run get_reports.py.'.format(
-                    REPORTS_DIRECTORY
-                )
-            )
-        sys.exit(0)
+        message = 'No reports to analyze in {}. Run get_reports.py.'. \
+            format(REPORTS_DIRECTORY)
+        error(message)
+        sys.exit(-1)
 
-    missing_bounty = 0
-    missing_cve = 0
-    reports = dict()
+    reports = dict()  # Reports that have bounty and CVE
+    unearthed = dict()  # ... bounty but CVE had to be unearthed from report
+    research = dict()  # ... bounty but no CVE
     for report_id in report_ids:
         filepath = os.path.join(REPORTS_DIRECTORY, '{}.json'.format(report_id))
         debug(filepath)
-        report = analyze_report(filepath)
-        if report['hackerone']['bounty'] is not None:
-            if report['has_cve']:
-                reports[report_id] = report
+
+        (report, has_cve) = analyze_report(filepath)
+        if report['bounty'] is not None:
+            if has_cve:
+                if report['unearthed'] is True:
+                    unearthed[report_id] = report
+                else:
+                    reports[report_id] = report
             else:
-                missing_cve += 1
-        else:
-            missing_bounty += 1
+                research[report_id] = report
 
-    warning('{} reports did not have a bounty.'.format(missing_bounty))
-    warning('{} reports with bounty did not have a CVE.'.format(missing_cve))
+    count = len(reports) + len(unearthed)
+    info('{}/{} reports have bounty'.format(count, len(report_ids)))
+    warning('{} reports already had CVE'.format(len(reports)))
+    warning('{} reports needed CVE to be unearthed'.format(len(unearthed)))
+    warning('{} reports with bounty have no CVE'.format(len(research)))
 
-    cves = list()
-    cvsses = list()
-    metrics = None
+    ordered_reports = sorted(_format(reports), key=lambda t: t[1])
+    ordered_unearthed = sorted(_format(unearthed), key=lambda t: t[1])
+    ordered_research = sorted(_format(research), key=lambda t: t[1])
+    if is_output_enabled:
+        with open(CVES_FILEPATH, 'w') as file_:
+            writer = csv.writer(file_)
+            writer.writerows(ordered_reports)
+        info('CVEs written to {}'.format(CVES_FILEPATH))
+
+        with open(CVES_REVIEW_FILEPATH, 'w') as file_:
+            writer = csv.writer(file_)
+            writer.writerows(ordered_unearthed)
+        info('{} has CVEs needing review'.format(CVES_REVIEW_FILEPATH))
+
+        with open(CVES_RESEARCH_FILEPATH, 'w') as file_:
+            writer = csv.writer(file_)
+            writer.writerows(ordered_research)
+        info('{} has CVEs needing research'.format(CVES_RESEARCH_FILEPATH))
+    else:
+        for (index, item) in enumerate(ordered_reports):
+            info('#{:3d} {} {} ${:,.2f}'.format(
+                    (index + 1), item[0], item[1], item[2],
+                ))
+        for (index, item) in enumerate(ordered_unearthed):
+            info('#{:3d} {} {} ${:,.2f}*'.format(
+                    (index + 1), item[0], item[1], item[2],
+                ))
+        for (index, item) in enumerate(ordered_research):
+            info('#{:3d} {} {} ${:,.2f}+'.format(
+                    (index + 1), item[0], item[1], item[2],
+                ))
+        info('* Review for accuracy  + Research to identify CVE')
+
+
+def analyze_report(filepath):
+    (details, has_cve) = (None, None)
+
+    with open(filepath, 'r') as file_:
+        details = utilities.Report.get_details(json.load(file_))
+        has_cve = True if details['cve_ids'] else False
+
+    return (details, has_cve)
+
+
+def _format(reports):
+    formatted = list()
+
     for (report_id, report) in reports.items():
-        bounty = (
-                report['hackerone']['bounty'] /
-                len(report['hackerone']['cve_ids'])
-            )
-        for cve_id in report['hackerone']['cve_ids']:
-            cves.append(
+        if len(report['cve_ids']) > 0:
+            bounty = report['bounty'] / len(report['cve_ids'])
+            for cve_id in report['cve_ids']:
+                formatted.append(
+                        (
+                            cve_id, report['product'], bounty,
+                            HACKERONE_WEB_URL_TEMPLATE.format(
+                                report_id=report_id
+                            )
+                        )
+                    )
+        else:
+            formatted.append(
                     (
-                        cve_id, report['hackerone']['product'], bounty,
+                        '-', report['product'], report['bounty'],
                         HACKERONE_WEB_URL_TEMPLATE.format(
                             report_id=report_id
                         )
                     )
                 )
 
-    if is_output_enabled:
-        with open(CVES_FILEPATH, 'w') as file_:
-            writer = csv.writer(file_)
-            writer.writerows(sorted(cves, key=lambda t: t[1]))
-        info('CVEs written to {}'.format(CVES_FILEPATH))
-    else:
-        for (index, cve) in enumerate(cves):
-            info('#{:3d} {} {} ${:,.2f}'.format(
-                    (index + 1), cve[0], cve[1], cve[2],
-                ))
-
-
-def analyze_report(filepath):
-    details = {'hackerone': None, 'has_cve': None}
-    with open(filepath, 'r') as file_:
-        details['hackerone'] = utilities.Report.get_details(json.load(file_))
-        details['has_cve'] = True if details['hackerone']['cve_ids'] else False
-
-    return details
+    return formatted
 
 
 if __name__ == '__main__':

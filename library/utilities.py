@@ -21,6 +21,10 @@ def get_year(cve_id):
     return int(match.group(1))
 
 
+def get_cve_ids(text):
+    return ['CVE-{}-{}'.format(*match) for match in RE_CVE_ID.findall(text)]
+
+
 class NvdXml(object):
     def __init__(self):
         self._xmls = dict()
@@ -99,20 +103,50 @@ class NvdXml(object):
 class Report(object):
     @staticmethod
     def get_details(report):
+        product = report['team']['profile']['name']
+        bounty = Report.get_bounty(report)
+        (cves, unearthed) = Report.get_cves(report)
+
+        details = {
+                'product': product, 'cve_ids': cves, 'bounty': bounty,
+                'unearthed': unearthed
+            }
+        return details
+
+    @staticmethod
+    def get_bounty(report):
         bounty = None
+
         if report['has_bounty?']:
             if 'bounty_amount' in report:
-                bounty = float(report['bounty_amount'])
+                bounty = report['bounty_amount']
             else:
                 for activity in report['activities']:
                     if 'bounty_amount' in activity:
-                        bounty = float(
-                                activity['bounty_amount'].replace(',', '')
-                            )
+                        bounty = activity['bounty_amount'].replace(',', '')
                         break
+
+        return float(bounty) if bounty is not None else bounty
+
+    @staticmethod
+    def get_cves(report):
         cves = None
+        unearthed = False
+
         if report['cve_ids']:
             cves = report['cve_ids']
-        product = report['team']['profile']['name']
+        else:
+            unearthed = True
+            cves = get_cve_ids(report['title'])
+            cves += get_cve_ids(report['vulnerability_information'])
+            for activity in report['activities']:
+                message = activity.get('message', None)
+                if message is not None:
+                    cves += get_cve_ids(message)
+            for summary in report['summaries']:
+                content = summary.get('content', None)
+                if content is not None:
+                    cves += get_cve_ids(content)
+            cves = list(set(cves))
 
-        return {'product': product, 'cve_ids': cves, 'bounty': bounty}
+        return (cves, unearthed)
