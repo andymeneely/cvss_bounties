@@ -8,30 +8,18 @@ source("library.R")
 # Initialize Libraries
 init.libraries()
 
-# Constants
-QUERY = 
-  "SELECT cve.id, cve.product, bounty.amount, cvss.score,
-    cvss.exploitability_subscore, cvss.impact_subscore,
-    cvss.access_complexity, cvss.access_vector,
-    cvss.authentication, cvss.availability_impact,
-    cvss.confidentiality_impact, cvss.integrity_impact
-  FROM cve
-    JOIN cvss ON cvss.cve_id = cve.id
-    JOIN bounty ON bounty.cve_id = cve.id"
-
 # Database Connection
 db.connection <- get.db.connection()
 dataset <- db.get.data(db.connection, QUERY)
 db.disconnect(db.connection)
 
-# Data Tranformations
-
-## Transform Categoricals into Factors
+# Dataset Transformation
 dataset <- transform.dataset(dataset)
 
 # Regression Analysis
 
 ## Simple Linear Regression
+
 ### Metric: Score
 lm.score <- lm(
   score ~ access_complexity + access_vector + authentication +
@@ -49,13 +37,33 @@ lm.amount <- lm(
 print(summary(lm.amount))
 
 ### Stepwise Selection
+
 ### Metric: Amount
 lm.amount.subset <- step(lm.amount, direction = "both", k = 2)
 print(summary(lm.amount.subset))
 
-## Recursive Partitioning and Regression Trees
-### Metric: Score
+### Replicating CVSS v2
+#### Metric: Score
+lm.replication.score <- lm(
+  score ~ availability_impact + confidentiality_impact + integrity_impact -
+    availability_impact * confidentiality_impact - confidentiality_impact * integrity_impact - integrity_impact * availability_impact +
+    availability_impact * confidentiality_impact * integrity_impact + access_vector * access_complexity * authentication,
+  data = dataset
+)
+print(summary(lm.replication.score))
 
+#### Metric: Amount
+lm.replication.amount <- lm(
+  amount ~ availability_impact + confidentiality_impact + integrity_impact -
+    availability_impact * confidentiality_impact - confidentiality_impact * integrity_impact - integrity_impact * availability_impact +
+    availability_impact * confidentiality_impact * integrity_impact + access_vector * access_complexity * authentication,
+  data = dataset
+)
+print(summary(lm.replication.amount))
+
+## Recursive Partitioning and Regression Trees
+
+### Metric: Score
 rpart.score <- rpart(
   score ~ access_complexity + access_vector + authentication +
     availability_impact + confidentiality_impact + integrity_impact,
