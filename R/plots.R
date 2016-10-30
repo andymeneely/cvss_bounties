@@ -8,28 +8,13 @@ source("library.R")
 # Initialize Libraries
 init.libraries()
 
-# Constants
-QUERY = 
-  "SELECT cve.id, cve.product, bounty.amount, cvss.score,
-    cvss.exploitability_subscore, cvss.impact_subscore,
-    cvss.access_complexity, cvss.access_vector,
-    cvss.authentication, cvss.availability_impact,
-    cvss.confidentiality_impact, cvss.integrity_impact
-  FROM cve
-    JOIN cvss ON cvss.cve_id = cve.id
-    JOIN bounty ON bounty.cve_id = cve.id"
-
 # Database Connection
 db.connection <- get.db.connection()
 dataset <- db.get.data(db.connection, QUERY)
 db.disconnect(db.connection)
 
-## Transform Categoricals into Factors
+# Data Transformation
 dataset <- transform.dataset(dataset)
-
-## Outlier Detection Using k-means Clustering
-outlier.indices <- get.outlier.indices(dataset$amount)
-outlier.cutoff <- max(dataset$amount[-outlier.indices])
 
 # Plots
 
@@ -65,7 +50,7 @@ for(i in 1:length(product.labels)){
 qplot(
   product, amount, data = dataset,
   main = "",
-  xlab = "Product (Number of Vulnerabilities)", ylab = "Bounty", geom = "boxplot"
+  xlab = "Product (Number of Vulnerabilities)", ylab = "Bounty (Log Scale)", geom = "boxplot"
 ) +
   plot.theme +
   scale_y_log10(labels = scales::dollar) +
@@ -93,15 +78,16 @@ plot.labels <- data.frame(
     get.spearmansrho(data.source, "amount", "score")
   )
 )
-scatter.score <- ggplot(plot.source, aes(x = score, y = amount)) +
+
+ggplot(plot.source, aes(x = score, y = amount)) +
   geom_point() +
   geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
   facet_grid(. ~ type, scales = "free", space = "free") +
   scale_x_continuous(breaks = seq(0.0, 10.0, by = 0.5)) +
   scale_y_continuous(labels = scales::dollar) +
   geom_text(
-    data = plot.labels, parse = T, inherit.aes = F,
-    aes(x = x, y = y, label = paste("rho==", correlation, sep = ""), hjust = 0, vjust = 1)
+    data = plot.labels, parse = T, inherit.aes = F, hjust = 0, vjust = 1,
+    aes(x = x, y = y, label = paste("rho==", correlation, sep = ""))
   ) +
   labs(title = "", x = "Score", y = "Bounty") +
   plot.theme
@@ -129,7 +115,7 @@ plot.labels <- data.frame(
     get.spearmansrho(data.source, "amount", "impact_subscore")
   )
 )
-scatter.subscore <-ggplot(plot.source, aes(x = score, y = amount)) +
+ggplot(plot.source, aes(x = score, y = amount)) +
   geom_point() +
   geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
   facet_grid(. ~ type, space = "free") +
@@ -141,79 +127,6 @@ scatter.subscore <-ggplot(plot.source, aes(x = score, y = amount)) +
   ) +
   labs(title = "", x = "Score", y = "Bounty") +
   plot.theme
-
-#### Layout
-grid.arrange(scatter.score, scatter.subscore, nrow=2)
-
-### Dataset with Outliers Removed
-data.source <- dataset[-outlier.indices,]
-
-#### Base Score Only
-plot.source <- rbind(
-  data.frame(
-    "type" = "Base Score",
-    "amount" = data.source$amount, "score" = data.source$score
-  )
-)
-plot.labels <- data.frame(
-  "type" = c("Base Score"),
-  "x" = c(min(data.source$score)),
-  "y" = c(max(data.source$amount)),
-  "correlation" = c(
-    get.spearmansrho(data.source, "amount", "score")
-  )
-)
-scatter.score <- ggplot(plot.source, aes(x = score, y = amount)) +
-  geom_point() +
-  geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
-  facet_grid(. ~ type, scales = "free", space = "free") +
-  scale_x_continuous(breaks = seq(0.0, 10.0, by = 0.5)) +
-  scale_y_continuous(labels = scales::dollar) +
-  geom_text(
-    data = plot.labels, parse = T, inherit.aes = F,
-    aes(x = x, y = y, label = paste("rho==", correlation, sep = ""), hjust = 0, vjust = 1)
-  ) +
-  labs(title = "", x = "Score", y = "Bounty") +
-  plot.theme
-
-#### Subscores Only
-plot.source <- rbind(
-  data.frame(
-    "type" = "Exploitability Subscore",
-    "amount" = data.source$amount, "score" = data.source$exploitability_subscore
-  ),
-  data.frame(
-    "type" = "Impact Subscore",
-    "amount" = data.source$amount, "score" = data.source$impact_subscore
-  )
-)
-plot.labels <- data.frame(
-  "type" = c("Exploitability Subscore", "Impact Subscore"),
-  "x" = c(
-    min(data.source$exploitability_subscore, data.source$impact_subscore),
-    min(data.source$exploitability_subscore, data.source$impact_subscore)
-  ),
-  "y" = c(max(data.source$amount), max(data.source$amount)),
-  "correlation" = c(
-    get.spearmansrho(data.source, "amount", "exploitability_subscore"),
-    get.spearmansrho(data.source, "amount", "impact_subscore")
-  )
-)
-scatter.subscore <-ggplot(plot.source, aes(x = score, y = amount)) +
-  geom_point() +
-  geom_smooth(method = "lm", colour = "gray45", linetype = "dashed") +
-  facet_grid(. ~ type, space = "free") +
-  scale_x_continuous(breaks = seq(0.0, 10.0, by = 0.5)) +
-  scale_y_continuous(labels = scales::dollar) +
-  geom_text(
-    data = plot.labels, parse = T, inherit.aes = F,
-    aes(x = x, y = y, label = paste("rho==", correlation, sep = ""), hjust = 0, vjust = 1)
-  ) +
-  labs(title = "", x = "Score", y = "Bounty") +
-  plot.theme
-
-#### Layout
-grid.arrange(scatter.score, scatter.subscore, nrow=2)
 
 ## Boxplots
 
@@ -248,7 +161,7 @@ plot.source <- rbind(
 
 ggplot(plot.source, aes(x = value, y = amount)) +
   geom_boxplot() +
-  facet_wrap(~ label, scales = "free_x") +
+  facet_wrap(~ label, scales = "free_x", nrow = 1) +
   scale_x_discrete(breaks = waiver(), labels = METRIC.VALUE.LABELS) +
   scale_y_log10(labels = scales::dollar) +
   labs(title = "", x = "Metric Value", y = "Bounty (Log Scale)") +
