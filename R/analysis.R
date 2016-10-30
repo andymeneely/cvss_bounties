@@ -22,23 +22,16 @@ CRITERIA <- c(
   "[Integrity Impact] Partial vs. Complete"
 )
 COLNAMES <- c(
-  "Cohen's d (Bounty)", "Effect (Bounty)",
-  "Cohen's d (Score)", "Effect (Score)"
+  "Effect", "Cohen's d", "Cohen's U1", "p-value"
 )
-QUERY = 
-  "SELECT cve.id, cve.product, bounty.amount, cvss.score,
-    cvss.exploitability_subscore, cvss.impact_subscore,
-    cvss.access_complexity, cvss.access_vector,
-    cvss.authentication, cvss.availability_impact,
-    cvss.confidentiality_impact, cvss.integrity_impact
-  FROM cve
-    JOIN cvss ON cvss.cve_id = cve.id
-    JOIN bounty ON bounty.cve_id = cve.id"
 
 # Database Connection
 db.connection <- get.db.connection()
 dataset <- db.get.data(db.connection, QUERY)
 db.disconnect(db.connection)
+
+# Dataset Transformation
+dataset <- transform.dataset(dataset)
 
 # Correlation
 
@@ -46,165 +39,234 @@ db.disconnect(db.connection)
 cor.test(dataset$score, dataset$amount, method = "spearman", exact = F)
 
 ## Individual Product
+correlation.product = data.frame()
 for(product in unique(dataset$product)){
   product.dataset <- dataset[dataset$product == product,]
   if(nrow(product.dataset) > 2 & sd(product.dataset$score) != 0 & sd(product.dataset$amount) != 0){
-    cat("#########################\n")
-    cat(product, "\n")
-    print(cor.test(product.dataset$score, product.dataset$amount, method = "spearman", exact = F))
-    cat("#########################\n")
+    correlation <- cor.test(
+      product.dataset$score, product.dataset$amount, method = "spearman", exact = F
+    )
+    correlation.product <- rbind(
+      correlation.product,
+      data.frame(
+        "product" = product, "p-value" = correlation$p.value, "rho" = correlation$estimate, "count" = nrow(product.dataset)
+      )
+    )
   }
 }
+print(correlation.product)
+
+## Evolution by Product
+correlation.product.evolution = data.frame()
+for(product in unique(dataset$product)){
+  product.dataset <- dataset[dataset$product == product,]
+  for(year in unique(product.dataset$year)){
+    product.year.dataset <- product.dataset[product.dataset$year == year,]
+    if(nrow(product.year.dataset) > 2 & sd(product.year.dataset$score) != 0 & sd(product.year.dataset$amount) != 0){
+      correlation <- cor.test(
+        product.year.dataset$score, product.year.dataset$amount, method = "spearman", exact = F
+      )
+      correlation.product.evolution <- rbind(
+        correlation.product.evolution,
+        data.frame(
+          "product" = product, "year" = year, "p-value" = correlation$p.value, "rho" = correlation$estimate,
+          "count" = nrow(product.year.dataset)
+        )
+      )
+    }
+  }
+}
+print(correlation.product.evolution)
 
 # Pairwise Effect Evaluation
 
+## Log-transforming the data to approximate normal distribution
+dataset$amount <- log(dataset$amount)
+
 ## Metric: Amount
-effect.amount <- vector(mode = "list", length = length(CRITERIA))
+effect.comparison <- data.frame()
 
 ### Access Complexity
 #### Low vs. Medium
-effect.amount[[1]] <- cohen.d(
-  dataset$amount[dataset$access_complexity == "LOW"],
-  dataset$amount[dataset$access_complexity == "MEDIUM"]
+population.a <- dataset$amount[dataset$access_complexity == "LOW"]
+population.b <- dataset$amount[dataset$access_complexity == "MEDIUM"]
+es <- mes(
+  mean(population.a), mean(population.b),
+  sd(population.a), sd(population.b),
+  length(population.a), length(population.b),
+  verbose = F
 )
+effect.comparison <- rbind(
+  effect.comparison,
+  data.frame(
+    "effect" = eval.es(es$d), "d" = es$d, "u1" = 100 - get.u1(es$d) * 100, "p-value" = es$pval.d
+  )
+)
+
 #### Medium vs. High
-effect.amount[[2]] <- cohen.d(
-  dataset$amount[dataset$access_complexity == "MEDIUM"],
-  dataset$amount[dataset$access_complexity == "HIGH"]
+population.a <- dataset$amount[dataset$access_complexity == "MEDIUM"]
+population.b <- dataset$amount[dataset$access_complexity == "HIGH"]
+es <- mes(
+  mean(population.a), mean(population.b),
+  sd(population.a), sd(population.b),
+  length(population.a), length(population.b),
+  verbose = F
+)
+effect.comparison <- rbind(
+  effect.comparison,
+  data.frame(
+    "effect" = eval.es(es$d), "d" = es$d, "u1" = 100 - get.u1(es$d) * 100, "p-value" = es$pval.d
+  )
 )
 
 ### Access Vector
 #### Local vs. Network
-effect.amount[[3]] <- cohen.d(
-  dataset$amount[dataset$access_vector == "LOCAL"],
-  dataset$amount[dataset$access_vector == "NETWORK"]
+population.a <- dataset$amount[dataset$access_vector == "LOCAL"]
+population.b <- dataset$amount[dataset$access_vector == "NETWORK"]
+es <- mes(
+  mean(population.a), mean(population.b),
+  sd(population.a), sd(population.b),
+  length(population.a), length(population.b),
+  verbose = F
+)
+effect.comparison <- rbind(
+  effect.comparison,
+  data.frame(
+    "effect" = eval.es(es$d), "d" = es$d, "u1" = 100 - get.u1(es$d) * 100, "p-value" = es$pval.d
+  )
 )
 
 ### Authentication
 #### None vs. Single Instance
-effect.amount[[4]] <- cohen.d(
-  dataset$amount[dataset$authentication == "NONE"],
-  dataset$amount[dataset$authentication == "SINGLE_INSTANCE"]
+population.a <- dataset$amount[dataset$authentication == "NONE"]
+population.b <- dataset$amount[dataset$authentication == "SINGLE_INSTANCE"]
+es <- mes(
+  mean(population.a), mean(population.b),
+  sd(population.a), sd(population.b),
+  length(population.a), length(population.b),
+  verbose = F
+)
+effect.comparison <- rbind(
+  effect.comparison,
+  data.frame(
+    "effect" = eval.es(es$d), "d" = es$d, "u1" = 100 - get.u1(es$d) * 100, "p-value" = es$pval.d
+  )
 )
 
 ### Availability Impact
 #### None vs. Partial
-effect.amount[[5]] <- cohen.d(
-  dataset$amount[dataset$availability_impact == "NONE"],
-  dataset$amount[dataset$availability_impact == "PARTIAL"]
+population.a <- dataset$amount[dataset$availability_impact == "NONE"]
+population.b <- dataset$amount[dataset$availability_impact == "PARTIAL"]
+es <- mes(
+  mean(population.a), mean(population.b),
+  sd(population.a), sd(population.b),
+  length(population.a), length(population.b),
+  verbose = F
+)
+effect.comparison <- rbind(
+  effect.comparison,
+  data.frame(
+    "effect" = eval.es(es$d), "d" = es$d, "u1" = 100 - get.u1(es$d) * 100, "p-value" = es$pval.d
+  )
 )
 #### Partial vs. Complete
-effect.amount[[6]] <- cohen.d(
-  dataset$amount[dataset$availability_impact == "PARTIAL"],
-  dataset$amount[dataset$availability_impact == "COMPLETE"]
+population.a <- dataset$amount[dataset$availability_impact == "PARTIAL"]
+population.b <- dataset$amount[dataset$availability_impact == "COMPLETE"]
+es <- mes(
+  mean(population.a), mean(population.b),
+  sd(population.a), sd(population.b),
+  length(population.a), length(population.b),
+  verbose = F
+)
+effect.comparison <- rbind(
+  effect.comparison,
+  data.frame(
+    "effect" = eval.es(es$d), "d" = es$d, "u1" = 100 - get.u1(es$d) * 100, "p-value" = es$pval.d
+  )
 )
 
 ## Confidentiality Impact
 #### None vs. Partial
-effect.amount[[7]] <- cohen.d(
-  dataset$amount[dataset$confidentiality_impact == "NONE"],
-  dataset$amount[dataset$confidentiality_impact == "PARTIAL"]
+population.a <- dataset$amount[dataset$confidentiality_impact == "NONE"]
+population.b <- dataset$amount[dataset$confidentiality_impact == "PARTIAL"]
+es <- mes(
+  mean(population.a), mean(population.b),
+  sd(population.a), sd(population.b),
+  length(population.a), length(population.b),
+  verbose = F
+)
+effect.comparison <- rbind(
+  effect.comparison,
+  data.frame(
+    "effect" = eval.es(es$d), "d" = es$d, "u1" = 100 - get.u1(es$d) * 100, "p-value" = es$pval.d
+  )
 )
 #### Partial vs. Complete
-effect.amount[[8]] <- cohen.d(
-  dataset$amount[dataset$confidentiality_impact == "PARTIAL"],
-  dataset$amount[dataset$confidentiality_impact == "COMPLETE"]
+population.a <- dataset$amount[dataset$confidentiality_impact == "PARTIAL"]
+population.b <- dataset$amount[dataset$confidentiality_impact == "COMPLETE"]
+es <- mes(
+  mean(population.a), mean(population.b),
+  sd(population.a), sd(population.b),
+  length(population.a), length(population.b),
+  verbose = F
+)
+effect.comparison <- rbind(
+  effect.comparison,
+  data.frame(
+    "effect" = eval.es(es$d), "d" = es$d, "u1" = 100 - get.u1(es$d) * 100, "p-value" = es$pval.d
+  )
 )
 
 ### Integrity Impact
 #### None vs. Partial
-effect.amount[[9]] <- cohen.d(
-  dataset$amount[dataset$integrity_impact == "NONE"],
-  dataset$amount[dataset$integrity_impact == "PARTIAL"]
+population.a <- dataset$amount[dataset$integrity_impact == "NONE"]
+population.b <- dataset$amount[dataset$integrity_impact == "PARTIAL"]
+es <- mes(
+  mean(population.a), mean(population.b),
+  sd(population.a), sd(population.b),
+  length(population.a), length(population.b),
+  verbose = F
+)
+effect.comparison <- rbind(
+  effect.comparison,
+  data.frame(
+    "effect" = eval.es(es$d), "d" = es$d, "u1" = 100 - get.u1(es$d) * 100, "p-value" = es$pval.d
+  )
 )
 #### Partial vs. Complete
-effect.amount[[10]] <- cohen.d(
-  dataset$amount[dataset$integrity_impact == "PARTIAL"],
-  dataset$amount[dataset$integrity_impact == "COMPLETE"]
+population.a <- dataset$amount[dataset$integrity_impact == "PARTIAL"]
+population.b <- dataset$amount[dataset$integrity_impact == "COMPLETE"]
+es <- mes(
+  mean(population.a), mean(population.b),
+  sd(population.a), sd(population.b),
+  length(population.a), length(population.b),
+  verbose = F
 )
-
-## Metric: Score
-effect.score <- vector(mode = "list", length = length(CRITERIA))
-
-### Access Complexity
-#### Low vs. Medium
-effect.score[[1]] <- cohen.d(
-  dataset$score[dataset$access_complexity == "LOW"],
-  dataset$score[dataset$access_complexity == "MEDIUM"]
-)
-#### Medium vs. High
-effect.score[[2]] <- cohen.d(
-  dataset$score[dataset$access_complexity == "MEDIUM"],
-  dataset$score[dataset$access_complexity == "HIGH"]
-)
-
-### Access Vector
-#### Local vs. Network
-effect.score[[3]] <- cohen.d(
-  dataset$score[dataset$access_vector == "LOCAL"],
-  dataset$score[dataset$access_vector == "NETWORK"]
-)
-
-### Authentication
-#### None vs. Single Instance
-effect.score[[4]] <- cohen.d(
-  dataset$score[dataset$authentication == "NONE"],
-  dataset$score[dataset$authentication == "SINGLE_INSTANCE"]
-)
-
-### Availability Impact
-#### None vs. Partial
-effect.score[[5]] <- cohen.d(
-  dataset$score[dataset$availability_impact == "NONE"],
-  dataset$score[dataset$availability_impact == "PARTIAL"]
-)
-#### Partial vs. Complete
-effect.score[[6]] <- cohen.d(
-  dataset$score[dataset$availability_impact == "PARTIAL"],
-  dataset$score[dataset$availability_impact == "COMPLETE"]
-)
-
-## Confidentiality Impact
-#### None vs. Partial
-effect.score[[7]] <- cohen.d(
-  dataset$score[dataset$confidentiality_impact == "NONE"],
-  dataset$score[dataset$confidentiality_impact == "PARTIAL"]
-)
-#### Partial vs. Complete
-effect.score[[8]] <- cohen.d(
-  dataset$score[dataset$confidentiality_impact == "PARTIAL"],
-  dataset$score[dataset$confidentiality_impact == "COMPLETE"]
-)
-
-### Integrity Impact
-#### None vs. Partial
-effect.score[[9]] <- cohen.d(
-  dataset$score[dataset$integrity_impact == "NONE"],
-  dataset$score[dataset$integrity_impact == "PARTIAL"]
-)
-#### Partial vs. Complete
-effect.score[[10]] <- cohen.d(
-  dataset$score[dataset$integrity_impact == "PARTIAL"],
-  dataset$score[dataset$integrity_impact == "COMPLETE"]
+effect.comparison <- rbind(
+  effect.comparison,
+  data.frame(
+    "effect" = eval.es(es$d), "d" = es$d, "u1" = 100 - get.u1(es$d) * 100, "p-value" = es$pval.d
+  )
 )
 
 ### Comparison
-amount.d <- numeric(length = length(CRITERIA))
-amount.effect <- character(length = length(CRITERIA))
-score.d <- numeric(length = length(CRITERIA))
-score.effect <- character(length = length(CRITERIA))
-for(i in 1:length(CRITERIA)){
-  amount.d[i] <- round(effect.amount[[i]]$estimate, 4)
-  amount.effect[i] <- effect.amount[[i]]$magnitude
-  
-  score.d[i] <- round(effect.score[[i]]$estimate, 4)
-  score.effect[i] <- effect.score[[i]]$magnitude
-}
-effect.comparison <- data.frame(
-  amount.d, amount.effect, score.d, score.effect 
-)
 rownames(effect.comparison) <- CRITERIA
 colnames(effect.comparison) <- COLNAMES
 
 ### Output
 print(effect.comparison)
+
+# Inter Rater Reliability
+irr.projects <- data.frame()
+ratings <- read.csv("ratings.csv", header = T)
+for(project in unique(ratings$project)){
+  cat(project, "\n")
+  ratings.project <- ratings[ratings$project == project, ]
+  irr.project <- kappa2(ratings.project[,3:4])
+  irr.projects <- rbind(
+    irr.projects,
+    data.frame(
+      "project" = project, "kappa" = irr.project$value, "p-value" = irr.project$p.value)
+  )
+}
+print(irr.projects)
