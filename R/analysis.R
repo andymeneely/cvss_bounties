@@ -10,10 +10,10 @@ init.libraries()
 
 # Constants
 CRITERIA <- c(
-  "[Access Complexity] Low vs. Medium",
-  "[Access Complexity] Medium vs. High",
+  "[Access Complexity] High vs. Medium",
+  "[Access Complexity] Medium vs. Low",
   "[Access Vector] Local vs. Network",
-  "[Authentication] None vs. Single",
+  "[Authentication] Single vs. None",
   "[Availability Impact] None vs. Partial",
   "[Availability Impact] Partial vs. Complete",
   "[Confidentiality Impact] None vs. Partial",
@@ -26,7 +26,7 @@ COLNAMES <- c(
 )
 
 # Database Connection
-db.connection <- get.db.connection()
+db.connection <- get.db.connection(environment="PRODUCTION")
 dataset <- db.get.data(db.connection, QUERY)
 db.disconnect(db.connection)
 
@@ -37,6 +37,16 @@ dataset <- transform.dataset(dataset)
 
 ## Overall
 cor.test(dataset$score, dataset$amount, method = "spearman", exact = F)
+
+## Subscores
+cor.test(
+  dataset$exploitability_subscore, dataset$amount,
+  method = "spearman", exact = F
+)
+cor.test(
+  dataset$impact_subscore, dataset$amount,
+  method = "spearman", exact = F
+)
 
 ## Individual Product
 correlation.product = data.frame()
@@ -78,6 +88,41 @@ for(product in unique(dataset$product)){
 }
 print(correlation.product.evolution)
 
+## CVSS v3 Base Score versus Bounty
+vthree.dataset <- read.csv("vthree.csv", header = T, stringsAsFactors = F)
+analysis.dataset <- dplyr::inner_join(vthree.dataset, dataset, by = "id")
+cor.test(
+  analysis.dataset$vthree.score, analysis.dataset$amount,
+  method = "spearman", exact = F
+)
+
+## IBM X-Force versus CVSS
+xforce.dataset <- read.csv("xforce.csv", header = T, stringsAsFactors = F)
+analysis.dataset <- inner_join(xforce.dataset, vthree.dataset, by = "id") %>%
+  filter(., xf.version == 3.0) %>%
+  select(id, score = vthree.score, xf.base, xf.url)
+analysis.dataset <- rbind(
+  analysis.dataset,
+  inner_join(xforce.dataset, dataset, by = "id") %>%
+    filter(., xf.version == 2.0) %>%
+    select(id, score = score, xf.base, xf.url)
+)
+analysis.dataset <-
+  inner_join(dataset %>% select(id, amount), analysis.dataset, by = "id") %>%
+  select(id, score, xf.base, amount, xf.url)
+
+### X-Force Base Score versus CVSS Base Score
+cor.test(
+  analysis.dataset$score, analysis.dataset$xf.base,
+  method = "spearman", exact = F
+)
+
+### X-Force Base Score versus Bounty
+cor.test(
+  analysis.dataset$xf.base, analysis.dataset$amount,
+  method = "spearman", exact = F
+)
+
 # Pairwise Effect Evaluation
 
 ## Log-transforming the data to approximate normal distribution
@@ -87,8 +132,8 @@ dataset$amount <- log(dataset$amount)
 effect.comparison <- data.frame()
 
 ### Access Complexity
-#### Low vs. Medium
-population.a <- dataset$amount[dataset$access_complexity == "LOW"]
+#### High vs. Medium
+population.a <- dataset$amount[dataset$access_complexity == "HIGH"]
 population.b <- dataset$amount[dataset$access_complexity == "MEDIUM"]
 es <- mes(
   mean(population.a), mean(population.b),
@@ -103,9 +148,9 @@ effect.comparison <- rbind(
   )
 )
 
-#### Medium vs. High
+#### Medium vs. Low
 population.a <- dataset$amount[dataset$access_complexity == "MEDIUM"]
-population.b <- dataset$amount[dataset$access_complexity == "HIGH"]
+population.b <- dataset$amount[dataset$access_complexity == "LOW"]
 es <- mes(
   mean(population.a), mean(population.b),
   sd(population.a), sd(population.b),
@@ -137,9 +182,9 @@ effect.comparison <- rbind(
 )
 
 ### Authentication
-#### None vs. Single Instance
-population.a <- dataset$amount[dataset$authentication == "NONE"]
-population.b <- dataset$amount[dataset$authentication == "SINGLE_INSTANCE"]
+#### Single Instance VS. None
+population.a <- dataset$amount[dataset$authentication == "SINGLE_INSTANCE"]
+population.b <- dataset$amount[dataset$authentication == "NONE"]
 es <- mes(
   mean(population.a), mean(population.b),
   sd(population.a), sd(population.b),
@@ -270,3 +315,6 @@ for(project in unique(ratings$project)){
   )
 }
 print(irr.projects)
+
+# Overall
+print(kappa2(ratings[,3:4]))
