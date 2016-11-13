@@ -9,7 +9,7 @@ source("library.R")
 init.libraries()
 
 # Database Connection
-db.connection <- get.db.connection()
+db.connection <- get.db.connection(environment="PRODUCTION")
 dataset <- db.get.data(db.connection, QUERY)
 db.disconnect(db.connection)
 
@@ -78,3 +78,23 @@ rpart.amount <- rpart(
   data = dataset, method = "anova"
 )
 print(summary(rpart.amount))
+
+## Random Forest
+
+### Metric: Score
+rforest.score <- randomForest(
+  score ~ access_complexity + access_vector + authentication +
+    availability_impact + confidentiality_impact + integrity_impact,
+  data = dataset, importance = TRUE
+)
+importance.score <- importance(rforest.score)
+score.rank <- rank(-sort(importance.score[,1]))
+
+### Metric: Amount
+rforest.amount <- randomForest(
+  amount ~ access_complexity + access_vector + authentication +
+    availability_impact + confidentiality_impact + integrity_impact,
+  data = dataset, importance = TRUE
+)
+importance.amount <- importance(rforest.amount)
+amount.rank <- rank(-sort(importance.amount[,1]))
