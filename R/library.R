@@ -16,9 +16,9 @@ names(METRIC.VALUES) <- c(
   "access_complexity", "access_vector", "authentication",
   "availability_impact", "confidentiality_impact", "integrity_impact"
 )
-METRIC.VALUES$access_complexity <- c("LOW", "MEDIUM", "HIGH")
+METRIC.VALUES$access_complexity <- c("HIGH", "MEDIUM", "LOW")
 METRIC.VALUES$access_vector <- c("LOCAL", "ADJACENT_NETWORK", "NETWORK")
-METRIC.VALUES$authentication <- c("NONE", "SINGLE_INSTANCE", "MULTIPLE_INSTANCES")
+METRIC.VALUES$authentication <- c("MULTIPLE_INSTANCES", "SINGLE_INSTANCE", "NONE")
 METRIC.VALUES$availability_impact <- c("NONE", "PARTIAL", "COMPLETE")
 METRIC.VALUES$confidentiality_impact <- c("NONE", "PARTIAL", "COMPLETE")
 METRIC.VALUES$integrity_impact <- c("NONE", "PARTIAL", "COMPLETE")
@@ -42,6 +42,11 @@ METRIC.VALUE.LABELS$MULTIPLE_INSTANCES <- "Multiple"
 METRIC.VALUE.LABELS$PARTIAL <- "Partial"
 METRIC.VALUE.LABELS$COMPLETE <- "Complete"
 
+QCODE.GROUP.LABELS <- c(
+  "generic" = "Generic", "technology" = "Technology-specific",
+  "product" = "Product-specific", "quality" = "Quality of Report"
+)
+
 QUERY =
   "SELECT cve.year, cve.id, cve.product, bounty.amount,
     cvss.score, cvss.exploitability_subscore,
@@ -55,18 +60,14 @@ QUERY =
 
 # Function Definitions
 init.libraries <- function(){
-  suppressPackageStartupMessages(library("DBI"))
-  suppressPackageStartupMessages(library("gtable"))
-  suppressPackageStartupMessages(library("ggplot2"))
-  suppressPackageStartupMessages(library("effsize"))
-  suppressPackageStartupMessages(library("rpart"))
-  suppressPackageStartupMessages(library("Rmisc"))
-  suppressPackageStartupMessages(library("stringr"))
-  suppressPackageStartupMessages(library("grid"))
-  suppressPackageStartupMessages(library("gridExtra"))
-  suppressPackageStartupMessages(library("compute.es"))
-  suppressPackageStartupMessages(library("irr"))
-  suppressPackageStartupMessages(library("randomForest"))
+  libraries <- c(
+    "compute.es","DBI","dplyr","effsize","ggplot2","gtable","grid",
+    "gridExtra","irr","rpart","Rmisc","stringr","randomForest","reshape2",
+    "tidyr"
+  )
+  for(lib in libraries){
+    suppressPackageStartupMessages(library(lib, character.only = T))
+  }
 }
 
 get.db.connection <- function(environment="PRODUCTION"){
@@ -137,12 +138,30 @@ db.get.data <- function(connection, query){
 }
 
 transform.dataset <- function(dataset){
-  dataset$access_complexity <- factor(dataset$access_complexity, level = METRIC.VALUES$access_complexity)
-  dataset$access_vector <- factor(dataset$access_vector, level = METRIC.VALUES$access_vector)
-  dataset$authentication <- factor(dataset$authentication, level = METRIC.VALUES$authentication)
-  dataset$availability_impact <- factor(dataset$availability_impact, level = METRIC.VALUES$availability_impact)
-  dataset$confidentiality_impact <- factor(dataset$confidentiality_impact, level = METRIC.VALUES$confidentiality_impact)
-  dataset$integrity_impact <- factor(dataset$integrity_impact, level = METRIC.VALUES$integrity_impact)
+  dataset$access_complexity <- factor(
+    dataset$access_complexity,
+    level = METRIC.VALUES$access_complexity
+  )
+  dataset$access_vector <- factor(
+    dataset$access_vector,
+    level = METRIC.VALUES$access_vector
+  )
+  dataset$authentication <- factor(
+    dataset$authentication,
+    level = METRIC.VALUES$authentication
+  )
+  dataset$availability_impact <- factor(
+    dataset$availability_impact,
+    level = METRIC.VALUES$availability_impact
+  )
+  dataset$confidentiality_impact <- factor(
+    dataset$confidentiality_impact,
+    level = METRIC.VALUES$confidentiality_impact
+  )
+  dataset$integrity_impact <- factor(
+    dataset$integrity_impact,
+    level = METRIC.VALUES$integrity_impact
+  )
   return(dataset)
 }
 
@@ -150,19 +169,25 @@ transform.dataset <- function(dataset){
 get.outlier.indices <- function(data.vector){
   clusters <- kmeans(x = data.vector, centers = 2)$cluster
   clusters.count <- table(clusters)
-  outlier.cluster <- names(clusters.count[clusters.count == min(clusters.count)])
+  outlier.cluster <- names(
+    clusters.count[clusters.count == min(clusters.count)]
+  )
   outlier.indices <- which(clusters == outlier.cluster)
   return(outlier.indices)
-<<<<<<< HEAD
 }
 
 # Spearman's Correlation
 get.spearmansrho <- function(dataset, column.one, column.two, p.value = 0.05){
-  correlation <- cor.test(dataset[[column.one]], dataset[[column.two]], method = "spearman", exact = F)
-  if(correlation$p.value > p.value){
-    stop(paste("Spearman's correlation insignificant with p-value =", correlation$p.value))
+  correlation <- cor.test(
+    dataset[[column.one]], dataset[[column.two]],
+    method = "spearman", exact = F
+  )
+  p <- round(correlation$p.value, 4)
+  rho <- round(correlation$estimate, 4)
+  if(p > p.value){
+    warning(paste("Spearman's correlation insignificant with p-value =", p))
   }
-  return(round(correlation$estimate, 4))
+  return(list("significant" = p <= p.value, "rho" = rho))
 }
 
 eval.es <- function(d){
@@ -187,4 +212,27 @@ get.u2 = function(d){
 }
 get.u1 = function(d){
   return((2 * get.u2(abs(d)) - 1) / get.u2(abs(d)))
+}
+
+# ggplot Functions
+get.theme <- function(){
+  plot.theme <-
+    theme_bw() +
+    theme(
+      plot.title = element_text(
+        size = 14, face = "bold", margin = ggplot2::margin(5,0,15,0)
+      ),
+      axis.text.x = element_text(
+        size=10, colour = "black", angle = 50, vjust = 1, hjust = 1
+      ),
+      axis.title.x = element_text(
+        colour = "black", face = "bold", margin = ggplot2::margin(10,0,5,0)
+      ),
+      axis.text.y = element_text(size=10, colour = "black"),
+      axis.title.y = element_text(
+        colour = "black", face = "bold", margin = ggplot2::margin(0,10,0,5)
+      ),
+      strip.text.x = element_text(size=10, face="bold")
+    )
+  return(plot.theme)
 }
